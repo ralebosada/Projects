@@ -17,55 +17,76 @@ install('requirements.txt')
 
 from datasets import load_dataset
 from pprint import pprint
+import numpy as np
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics import confusion_matrix
+from sklearn.metrics import classification_report
 
+## TRAINING NAIVE BAYES MODEL
+
+# Downloading Dataset
+# Data set: https://huggingface.co/datasets/rotten_tomatoes
 dataset = load_dataset('rotten_tomatoes', split='train')
-print(dataset.info.description)
+dataset_test = load_dataset('rotten_tomatoes', split='test')
 
-import numpy as np 
-import pandas as pd 
-
+# Loading Dataset using Pandas
 df = pd.DataFrame({'text':dataset['text'], 'label':dataset['label']}, columns=['text', 'label'])
+
+# Extracting Dataset
 X_train = df['text']  # features
 y_train = df['label'] # target (positive=1, negative=0)
 
-print("Sample positive reviews")
-print(df[df['label']==1][:5])
+# Created Features using SKLearn
+my_vectorizer = TfidfVectorizer()  # Removed Stop words and used TfidVectorizer()
+X_train_vec = my_vectorizer.fit_transform(X_train)
 
-print("\nSample negative reviews")
-print(df[df['label']==0][:5])
-
-from sklearn.feature_extraction.text import CountVectorizer
-
-# vectorizer = CountVectorizer()
-vectorizer = CountVectorizer(stop_words='english')  # remove stop words
-X_train_vec = vectorizer.fit_transform(X_train)
-
-words = vectorizer.get_feature_names_out()
-counts = X_train_vec.toarray().sum(axis=0)
-
-df_words = pd.DataFrame({'words':words, 'count':counts}, columns=['words', 'count'])
-df_words.sort_values(by=['count'], ascending=False).head(10)
-
-from sklearn.naive_bayes import MultinomialNB
-
-model = MultinomialNB()
-model.fit(X_train_vec, y_train)
-y_pred = model.predict(X_train_vec) # Note: this should be done a separate test set
+# Created Naive-Bayes Model using SKLearn
+my_model = MultinomialNB()
+my_model.fit(X_train_vec, y_train)
+y_pred = my_model.predict(X_train_vec) # Note: this should be done a separate test set
 y_true = y_train                    # Note: this should be done a separate test set
 
 # Print some of the prediction results
 prediction_results = pd.DataFrame({'Target':y_true, 'Prediction':y_pred}, columns=['Target', 'Prediction'])
-print(prediction_results.sample(n=20, random_state=280))
 
-# Compute confusion matrix
-from sklearn.metrics import confusion_matrix
-
+# Plot Confusion Matrix for Training
 cm = confusion_matrix(y_true, y_pred, labels=[1, 0])
+ax = plt.subplot()
+sns.heatmap(cm, annot=True, fmt='g', ax=ax)
 
-# Plot confusion matrix
-import seaborn as sns
-import matplotlib.pyplot as plt
+ax.set_xlabel('Prediction')
+ax.set_ylabel('Target')
+ax.set_title('Confusion Matrix')
+ax.xaxis.set_ticklabels(['positive', 'negative'])
+ax.yaxis.set_ticklabels(['positive', 'negative'])
 
+plt.show()
+
+# Print performance statistics
+print("\n",classification_report(y_true, y_pred, labels=[1, 0], target_names=['Positive', 'Negative']))
+
+## TESTING NAIVE-BAYES MODEL
+
+# Loading Test Dataset
+df_test = pd.DataFrame({'text':dataset_test['text'], 'label':dataset_test['label']}, columns=['text', 'label'])
+X_test = df_test['text']
+y_test = df_test['label']
+
+# Created Features using SKLearn
+X_test_vec = my_vectorizer.transform(X_test)
+counts_test = X_test_vec.toarray().sum(axis=0)
+
+# Evaluating NB Model using Test Dataset
+y_pred, y_true = [0]*10, [1]*10
+y_pred = my_model.predict(X_test_vec)
+y_true = y_test
+
+# Plot Confusion Matrix for Testing
+cm = confusion_matrix(y_true, y_pred, labels=[1, 0])
 ax = plt.subplot()
 sns.heatmap(cm, annot=True, fmt='g', ax=ax)
 
@@ -81,3 +102,6 @@ plt.show()
 from sklearn.metrics import classification_report
 
 print("\n",classification_report(y_true, y_pred, labels=[1, 0], target_names=['Positive', 'Negative']))
+
+# References:
+# PRRegonia:CS280_Lesson_1
